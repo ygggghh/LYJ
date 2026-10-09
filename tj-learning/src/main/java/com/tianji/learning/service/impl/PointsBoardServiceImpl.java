@@ -1,6 +1,5 @@
 package com.tianji.learning.service.impl;
 
-import com.google.protobuf.ListValue;
 import com.tianji.api.client.user.UserClient;
 import com.tianji.api.dto.user.UserDTO;
 import com.tianji.common.utils.CollUtils;
@@ -15,8 +14,6 @@ import com.tianji.learning.mapper.PointsBoardMapper;
 import com.tianji.learning.service.IPointsBoardService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import lombok.RequiredArgsConstructor;
-import net.sf.jsqlparser.expression.LongValue;
-import org.apache.catalina.LifecycleState;
 import org.springframework.data.redis.core.BoundZSetOperations;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations;
@@ -90,7 +87,8 @@ public class PointsBoardServiceImpl extends ServiceImpl<PointsBoardMapper, Point
         return null;
     }
 
-    private List<PointsBoard> queryCurrentBoardList(String key, @Min(value = 1, message = "页码不能小于1") Integer pageNo, @Min(value = 1, message = "每页查询数量不能小于1") Integer pageSize) {
+    @Override
+    public List<PointsBoard> queryCurrentBoardList(String key, @Min(value = 1, message = "页码不能小于1") Integer pageNo, @Min(value = 1, message = "每页查询数量不能小于1") Integer pageSize) {
         //计算分页
         int from=(pageNo-1)*pageSize;
         //查询积分排名
