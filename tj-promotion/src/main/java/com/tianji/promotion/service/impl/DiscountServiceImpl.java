@@ -28,7 +28,7 @@ public class DiscountServiceImpl implements IDiscountService {
         }
         // 计算订单总价
         int totalAmount = orderCourses.stream().mapToInt(OrderCourseDTO::getPrice).sum();
-        //筛选可用券
+        // 筛选可用券
         List<Coupon> availableCoupons = coupons.stream()
                 .filter(c -> DiscountStrategy.getDiscount(c.getDiscountType()).canUse(totalAmount, c))
                 .collect(Collectors.toList());

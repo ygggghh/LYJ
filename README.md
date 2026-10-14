@@ -343,24 +343,6 @@ curl http://localhost:{port}/actuator/health
 
 </details>
 
-## 🤝 贡献指南
-
-欢迎提交 Issue 和 Pull Request！
-
-- 提交 Bug 报告时，请包含详细的复现步骤
-- 提交新功能建议前，可以先开 Issue 讨论
-- 代码提交前请确保通过所有测试
-
-## 📄 开源协议
-
-MIT License
-
-## 📞 技术支持
-
-如有问题，请联系：
-- 系统管理员：admin@company.com
-- 技术支持群：[内部沟通群]
-
 ---
 
 <div align="center">
