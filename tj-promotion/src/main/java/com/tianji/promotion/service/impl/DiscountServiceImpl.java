@@ -14,17 +14,22 @@ import com.tianji.promotion.strategy.discount.Discount;
 import com.tianji.promotion.strategy.discount.DiscountStrategy;
 import com.tianji.promotion.utils.PermuteUtil;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
-
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class DiscountServiceImpl implements IDiscountService {
     private final UserCouponMapper userCouponMapper;
     private final ICouponScopeService scopeService;
-
+    private final Executor discountSolutionExecutor;
     @Override
     public List<CouponDiscountDTO> findDiscountSolution(List<OrderCourseDTO> orderCourses) {
         List<Coupon> coupons = userCouponMapper.queryMyCoupons(UserContext.getUser());
@@ -55,7 +60,61 @@ public class DiscountServiceImpl implements IDiscountService {
         }
         // 计算方案的优惠明细
         List<CouponDiscountDTO> list = Collections.synchronizedList(new ArrayList<>(solutions.size()));
-        return List.of();
+        CountDownLatch latch = new CountDownLatch(solutions.size());
+        for (List<Coupon> solution : solutions) {
+            // 异步计算
+            CompletableFuture
+                    .supplyAsync(
+                            () -> calculateSolutionDiscount(availableCouponMap, orderCourses, solution),
+                            discountSolutionExecutor
+                    ).thenAccept(dto -> {
+                        // 提交任务结果
+                        list.add(dto);
+                        latch.countDown();//每完成一个就通知一下
+                    });
+        }
+        // 等待运算结束
+        try {
+            latch.await(1, TimeUnit.SECONDS);//只等一秒
+        } catch (InterruptedException e) {
+            log.error("优惠方案计算被中断，{}", e.getMessage());
+        }
+        return findBestSolution(list);
+    }
+
+    private List<CouponDiscountDTO> findBestSolution(List<CouponDiscountDTO> list) {
+        // 1.准备Map记录最优解
+        Map<String, CouponDiscountDTO> moreDiscountMap = new HashMap<>();
+        Map<Integer, CouponDiscountDTO> lessCouponMap = new HashMap<>();
+        // 2.遍历，筛选最优解
+        for (CouponDiscountDTO solution : list) {
+            // 2.1.计算当前方案的id组合
+            String ids = solution.getIds().stream()
+                    .sorted(Long::compare).map(String::valueOf).collect(Collectors.joining(","));
+            // 2.2.比较用券相同时，优惠金额是否最大
+            CouponDiscountDTO best = moreDiscountMap.get(ids);
+            if (best != null && best.getDiscountAmount() >= solution.getDiscountAmount()) {
+                // 当前方案优惠金额少，跳过
+                continue;
+            }
+            // 2.3.比较金额相同时，用券数量是否最少
+            best = lessCouponMap.get(solution.getDiscountAmount());
+            int size = solution.getIds().size();
+            if (size > 1 && best != null && best.getIds().size() <= size) {
+                // 当前方案用券更多，放弃
+                continue;
+            }
+            // 2.4.更新最优解
+            moreDiscountMap.put(ids, solution);
+            lessCouponMap.put(solution.getDiscountAmount(), solution);
+        }
+        // 3.求交集
+        Collection<CouponDiscountDTO> bestSolutions = CollUtils
+                .intersection(moreDiscountMap.values(), lessCouponMap.values());
+        // 4.排序，按优惠金额降序
+        return bestSolutions.stream()
+                .sorted(Comparator.comparingInt(CouponDiscountDTO::getDiscountAmount).reversed())
+                .collect(Collectors.toList());
     }
 
     private Map<Coupon, List<OrderCourseDTO>> findAvailableCoupon(List<Coupon> coupons, List<OrderCourseDTO> courses) {

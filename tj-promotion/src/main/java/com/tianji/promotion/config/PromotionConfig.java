@@ -26,4 +26,15 @@ public class PromotionConfig {
         executor.initialize();
         return executor;
     }
+    @Bean
+    public Executor discountSolutionExecutor(){
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(12);
+        executor.setMaxPoolSize(12);
+        executor.setQueueCapacity(99999);
+        executor.setThreadNamePrefix("discount-solution-calculator-");
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.AbortPolicy());
+        executor.initialize();
+        return executor;
+    }
 }
